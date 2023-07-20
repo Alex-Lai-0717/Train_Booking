@@ -159,10 +159,10 @@ class TrainBookingGUI:
 
     def on_submit(self):
         self.clear_widgets()  # 加入這行以清除現有部件
-        mode = self.mode_var.get()
-        if mode == "車次":
+        self.mode = self.mode_var.get()
+        if self.mode == "車次":
             self.create_common_widgets(self.create_train_number_widgets)
-        elif mode == "時段":
+        if self.mode == "時段":
             self.create_common_widgets(self.create_time_slot_widgets)
 
     def create_common_widgets(self, specific_widgets_func):
@@ -203,18 +203,18 @@ class TrainBookingGUI:
 
         specific_widgets_func()
 
-        self.submit_button = tk.Button(self.window, text="確定", command=self.on_train_number_submit)
-        self.submit_button.pack()
-
         self.return_button = tk.Button(self.window, text="返回", command=self.create_widgets)
         self.return_button.pack()
 
-    def create_train_number_widgets(self, ):
+    def create_train_number_widgets(self):
         self.train_number_label = tk.Label(self.window, text="車次：")
         self.train_number_label.pack()
 
         self.train_number_entry = tk.Entry(self.window)
         self.train_number_entry.pack()
+
+        self.submit_button = tk.Button(self.window, text="確定", command=self.on_train_number_submit)
+        self.submit_button.pack()
 
     def on_train_number_submit(self):
         if self.validate_input():
@@ -247,6 +247,9 @@ class TrainBookingGUI:
         self.end_time_spinbox.insert(0, "21:00")  # 然後插入預設的時間
         self.end_time_spinbox.pack()
 
+        self.submit_button = tk.Button(self.window, text="確定", command=self.on_time_slot_submit)
+        self.submit_button.pack()
+
     def on_time_slot_submit(self):
         if self.validate_input():  # 如果輸入的資料是正確的
             start_station = self.start_station_var.get()
@@ -262,17 +265,26 @@ class TrainBookingGUI:
             threading.Thread(target=booking.book_ticket_by_time_slot).start()
 
     def validate_input(self):
-        validation_rules = [
-            self.validate_station,
-            self.validate_date,
-            self.validate_passenger_count,
-            self.validate_name_id,
-            self.validate_train_number,
-            self.validate_time,
-        ]
+        validation_rules = []
+        if self.mode == "車次":
+            validation_rules = [
+                self.validate_station(),
+                self.validate_date(),
+                self.validate_passenger_count(),
+                self.validate_name_id(),
+                self.validate_train_number(),
+            ]
+        if self.mode == "時段":
+            validation_rules = [
+                self.validate_station,
+                self.validate_date,
+                self.validate_passenger_count,
+                self.validate_name_id,
+                self.validate_time,
+            ]
 
         for rule in validation_rules:
-            if not rule():
+            if not rule:
                 return False
         return True
 
@@ -357,6 +369,7 @@ class TrainBookingGUI:
         if train_number is not None and not train_number.isdigit():
             messagebox.showerror("錯誤", "輸入的車次號碼必須是整數，請檢查並重新輸入。")
             return False
+        return True
 
     # 時間驗證
     def validate_time(self):
