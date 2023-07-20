@@ -276,11 +276,11 @@ class TrainBookingGUI:
             ]
         if self.mode == "時段":
             validation_rules = [
-                self.validate_station,
-                self.validate_date,
-                self.validate_passenger_count,
-                self.validate_name_id,
-                self.validate_time,
+                self.validate_station(),
+                self.validate_date(),
+                self.validate_passenger_count(),
+                self.validate_name_id(),
+                self.validate_time(),
             ]
 
         for rule in validation_rules:
@@ -406,8 +406,11 @@ class TrainBookingGUI:
     def run(self):
         self.window.mainloop()
 
+    @staticmethod
+    def start():
+        gui = TrainBookingGUI()
+        gui.run()
 
-# 建立 GUI 實例並執行
 
-booking_gui = TrainBookingGUI()
-booking_gui.run()
+if __name__ == "__main__":
+    TrainBookingGUI.start()
