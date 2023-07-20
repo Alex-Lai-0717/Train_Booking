@@ -1,7 +1,10 @@
 import re
+import os
 import tkinter as tk
 from tkinter import messagebox
+import pythoncom
 from selenium import webdriver
+from selenium.common import SessionNotCreatedException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -9,6 +12,7 @@ from selenium.webdriver.chrome.service import Service
 import time
 import datetime
 import threading
+from download_driver import DownloadDriver
 
 
 class TrainBooking:
@@ -24,39 +28,43 @@ class TrainBooking:
         self.start_time = start_time
         self.end_time = end_time
 
-    def book_ticket_by_time_slot(self):
+    def setup_and_book(self, book_func):
+        pythoncom.CoInitialize()
         self.setup_webdriver()
         self.select_start_station()
         self.select_end_station()
-        self.by_time_slot()
         while True:
             self.accept_prompt()
             self.select_date()
             self.select_passenger_count()
+            book_func()
             self.submit_form()
             if self.wait_for_confirmation():
                 break
 
+    def book_ticket_by_time_slot(self):
+        self.setup_and_book(self.by_time_slot)
+
     def book_ticket_by_train_number(self):
-        self.setup_webdriver()
-        self.select_start_station()
-        self.select_end_station()
-        while True:
-            self.accept_prompt()
-            self.select_date()
-            self.select_passenger_count()
-            self.by_train_number()
-            self.submit_form()
-            if self.wait_for_confirmation():
-                break
+        self.setup_and_book(self.by_train_number)
 
     def setup_webdriver(self):
         chrome_options = webdriver.ChromeOptions()
+        try:
+            # 嘗試設置 WebDriver
+            chrome_options = webdriver.ChromeOptions()
+            chrome_options.add_experimental_option("detach", True)  # 將 WebDriver 設置為 "detach" 模式
+            service = Service("chromedriver.exe")
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
-        chrome_options.add_experimental_option("detach", True)  # 將 WebDriver 設置為 "detach" 模式
+        except SessionNotCreatedException:
+            # 如果 WebDriver 設置失敗，運行 download_driver.py
+            print("當前的 ChromeDriver 版本與 Chrome 瀏覽器版本不兼容，正在嘗試下載適配的 ChromeDriver 版本...")
+            DownloadDriver.download_and_setup()
+            # 再次嘗試設置 WebDriver
+            service = Service("chromedriver.exe")
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
-        service = Service("chromedriver.exe")
-        self.driver = webdriver.Chrome(service=service, options=chrome_options)
         self.driver.get("https://www.railway.gov.tw/tra-tip-web/tip/tip001/tip123/query")
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "pid")))
 
@@ -112,14 +120,23 @@ class TrainBooking:
 
             try:
                 self.driver.find_element(By.ID, "goBack")
-                # 加入一個無窮迴圈以防止瀏覽器窗口被關閉
-                while True:
-                    pass
+                print("已找到可搭乘之車票。")
+                os._exit(0)
             except:
                 pass
 
 
 class TrainBookingGUI:
+    station_options = [
+        "1000-臺北",
+        "1020-板橋",
+        "1080-桃園",
+        "3390-員林",
+        "3360-彰化",
+        "3420-田中",
+        "4220-臺南",
+    ]
+
     def __init__(self):
         self.window = tk.Tk()
         self.window.title("Train Booking")
@@ -144,11 +161,11 @@ class TrainBookingGUI:
         self.clear_widgets()  # 加入這行以清除現有部件
         mode = self.mode_var.get()
         if mode == "車次":
-            self.create_train_number_widgets()
+            self.create_common_widgets(self.create_train_number_widgets)
         elif mode == "時段":
-            self.create_time_slot_widgets()
+            self.create_common_widgets(self.create_time_slot_widgets)
 
-    def create_train_number_widgets(self):
+    def create_common_widgets(self, specific_widgets_func):
         self.clear_widgets()
 
         self.start_station_label = tk.Label(self.window, text="起始車站：")
@@ -156,17 +173,14 @@ class TrainBookingGUI:
 
         self.start_station_var = tk.StringVar(self.window)
         self.start_station_var.set("1000-臺北")
-        self.start_station_option_menu = tk.OptionMenu(self.window, self.start_station_var, "1000-臺北", "1020-板橋",
-                                                       "3390-員林", "3360-彰化", "4220-臺南", "1080-桃園", "3420-田中")
+        self.start_station_option_menu = tk.OptionMenu(self.window, self.start_station_var, *self.station_options)
         self.start_station_option_menu.pack()
-
         self.end_station_label = tk.Label(self.window, text="終點車站：")
         self.end_station_label.pack()
 
         self.end_station_var = tk.StringVar(self.window)
         self.end_station_var.set("1080-桃園")
-        self.end_station_option_menu = tk.OptionMenu(self.window, self.end_station_var, "1000-臺北", "1020-板橋",
-                                                     "3390-員林", "3360-彰化", "4220-臺南", "1080-桃園", "3420-田中")
+        self.end_station_option_menu = tk.OptionMenu(self.window, self.end_station_var, *self.station_options)
         self.end_station_option_menu.pack()
 
         self.date_label = tk.Label(self.window, text="日期(例如:20230719)：")
@@ -187,17 +201,20 @@ class TrainBookingGUI:
         self.name_id_entry = tk.Entry(self.window)
         self.name_id_entry.pack()
 
-        self.train_number_label = tk.Label(self.window, text="車次：")
-        self.train_number_label.pack()
-
-        self.train_number_entry = tk.Entry(self.window)
-        self.train_number_entry.pack()
+        specific_widgets_func()
 
         self.submit_button = tk.Button(self.window, text="確定", command=self.on_train_number_submit)
         self.submit_button.pack()
 
         self.return_button = tk.Button(self.window, text="返回", command=self.create_widgets)
         self.return_button.pack()
+
+    def create_train_number_widgets(self, ):
+        self.train_number_label = tk.Label(self.window, text="車次：")
+        self.train_number_label.pack()
+
+        self.train_number_entry = tk.Entry(self.window)
+        self.train_number_entry.pack()
 
     def on_train_number_submit(self):
         if self.validate_input():
@@ -212,44 +229,6 @@ class TrainBookingGUI:
             threading.Thread(target=booking.book_ticket_by_train_number).start()
 
     def create_time_slot_widgets(self):
-        self.clear_widgets()
-
-        self.start_station_label = tk.Label(self.window, text="起始車站：")
-        self.start_station_label.pack()
-
-        self.start_station_var = tk.StringVar(self.window)
-        self.start_station_var.set("1000-臺北")
-        self.start_station_option_menu = tk.OptionMenu(self.window, self.start_station_var, "1000-臺北", "1020-板橋",
-                                                       "3390-員林", "3360-彰化", "4220-臺南", "1080-桃園", "3420-田中")
-        self.start_station_option_menu.pack()
-
-        self.end_station_label = tk.Label(self.window, text="終點車站：")
-        self.end_station_label.pack()
-
-        self.end_station_var = tk.StringVar(self.window)
-        self.end_station_var.set("1080-桃園")
-        self.end_station_option_menu = tk.OptionMenu(self.window, self.end_station_var, "1000-臺北", "1020-板橋",
-                                                     "3390-員林", "3360-彰化", "4220-臺南", "1080-桃園", "3420-田中")
-        self.end_station_option_menu.pack()
-
-        self.date_label = tk.Label(self.window, text="日期(例如:20230719)：")
-        self.date_label.pack()
-
-        self.date_entry = tk.Entry(self.window)
-        self.date_entry.pack()
-
-        self.passenger_count_label = tk.Label(self.window, text="乘客人數：")
-        self.passenger_count_label.pack()
-
-        self.passenger_count_entry = tk.Entry(self.window)
-        self.passenger_count_entry.pack()
-
-        self.name_id_label = tk.Label(self.window, text="身分證字號：")
-        self.name_id_label.pack()
-
-        self.name_id_entry = tk.Entry(self.window)
-        self.name_id_entry.pack()
-
         self.start_time_label = tk.Label(self.window, text="起始時間：")
         self.start_time_label.pack()
 
@@ -268,12 +247,6 @@ class TrainBookingGUI:
         self.end_time_spinbox.insert(0, "21:00")  # 然後插入預設的時間
         self.end_time_spinbox.pack()
 
-        self.submit_button = tk.Button(self.window, text="確定", command=self.on_time_slot_submit)
-        self.submit_button.pack()
-
-        self.return_button = tk.Button(self.window, text="返回", command=self.create_widgets)
-        self.return_button.pack()
-
     def on_time_slot_submit(self):
         if self.validate_input():  # 如果輸入的資料是正確的
             start_station = self.start_station_var.get()
@@ -289,18 +262,34 @@ class TrainBookingGUI:
             threading.Thread(target=booking.book_ticket_by_time_slot).start()
 
     def validate_input(self):
-        # 這裡是驗證輸入的資料是否正確的程式碼
-        # 您需要根據您的需求來實現這個函式
+        validation_rules = [
+            self.validate_station,
+            self.validate_date,
+            self.validate_passenger_count,
+            self.validate_name_id,
+            self.validate_train_number,
+            self.validate_time,
+        ]
+
+        for rule in validation_rules:
+            if not rule():
+                return False
+        return True
+
+    # 起始與終點站驗證
+    def validate_station(self):
         start_station = self.start_station_var.get()
         end_station = self.end_station_var.get()
-        date = self.date_entry.get()
-        passenger_count = self.passenger_count_entry.get()
-        name_id = self.name_id_entry.get()
-        train_number = self.train_number_entry.get() if hasattr(self, 'train_number_entry') else None
-        start_time = self.start_time_spinbox.get() if hasattr(self, 'start_time_spinbox') else None
-        end_time = self.end_time_spinbox.get() if hasattr(self, "end_time_spinbox") else None
 
-        # 日期驗證
+        if start_station == end_station:
+            messagebox.showerror("錯誤", "輸入的起始車站不能與終點車站相同，請檢查並重新輸入。")
+            return False
+        return True
+
+    # 日期驗證
+    def validate_date(self):
+        date = self.date_entry.get()
+
         if not date:
             messagebox.showerror("錯誤", "輸入的日期不能為空，請檢查並重新輸入。")
             return False
@@ -317,8 +306,12 @@ class TrainBookingGUI:
         if input_date < today:
             messagebox.showerror("錯誤", "輸入的日期不能早於當天的日期，請檢查並重新輸入。")
             return False
+        return True
 
-        # 票數驗證
+    # 票數驗證
+    def validate_passenger_count(self):
+        passenger_count = self.passenger_count_entry.get()
+
         if not passenger_count:
             messagebox.showerror("錯誤", "輸入的乘客數量不能為空，請檢查並重新輸入。")
             return False
@@ -327,13 +320,12 @@ class TrainBookingGUI:
         if not re.match(r"^\d+$", passenger_count) or not 1 <= int(passenger_count) <= 10:
             messagebox.showerror("錯誤", "輸入的乘客數量必須是 1 到 10 的整數，請檢查並重新輸入。")
             return False
+        return True
 
-        # 起始與終點站驗證
-        if start_station == end_station:
-            messagebox.showerror("錯誤", "輸入的起始車站不能與終點車站相同，請檢查並重新輸入。")
-            return False
+    # 身分證驗證
+    def validate_name_id(self):
+        name_id = self.name_id_entry.get()
 
-        # 身分證驗證
         if not name_id:
             messagebox.showerror("錯誤", "輸入的身分證字號不能為空，請檢查並重新輸入。")
             return False
@@ -356,18 +348,26 @@ class TrainBookingGUI:
         if not self.verifyID(name_id):
             messagebox.showerror("錯誤", "輸入的身分證號碼格式不正確，請檢查並重新輸入。")
             return False
+        return True
 
-        # 時間驗證
-        if start_time >= end_time:
-            messagebox.showerror("錯誤", "結束時間不能早於或等於起始時間，請檢查並重新輸入。")
-            return False
-
+    # 車次驗證
+    def validate_train_number(self):
+        train_number = self.train_number_entry.get() if hasattr(self, 'train_number_entry') else None
         # 驗證輸入的車次號碼是否為整數
         if train_number is not None and not train_number.isdigit():
             messagebox.showerror("錯誤", "輸入的車次號碼必須是整數，請檢查並重新輸入。")
             return False
 
-        return True  # 如果所有的輸入都通過了驗證，則返回 True
+    # 時間驗證
+    def validate_time(self):
+        start_time = self.start_time_spinbox.get() if hasattr(self, 'start_time_spinbox') else None
+        end_time = self.end_time_spinbox.get() if hasattr(self, "end_time_spinbox") else None
+
+        if start_time is not None and end_time is not None:
+            if start_time >= end_time:
+                messagebox.showerror("錯誤", "結束時間不能早於或等於起始時間，請檢查並重新輸入。")
+                return False
+        return True
 
     def verifyID(self, id):
         # 英文代號對應數值表（個位數乘以 9 加上十位數）
@@ -395,5 +395,6 @@ class TrainBookingGUI:
 
 
 # 建立 GUI 實例並執行
+
 booking_gui = TrainBookingGUI()
 booking_gui.run()
