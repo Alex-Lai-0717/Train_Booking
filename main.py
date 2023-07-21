@@ -1,10 +1,12 @@
 import re
 import os
+
 import tkinter as tk
+from ttkthemes import ThemedTk
 from tkinter import messagebox
 import pythoncom
 from selenium import webdriver
-from selenium.common import SessionNotCreatedException
+from selenium.common import SessionNotCreatedException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -27,6 +29,8 @@ class TrainBooking:
         self.train_number = train_number
         self.start_time = start_time
         self.end_time = end_time
+
+
 
     def setup_and_book(self, book_func):
         pythoncom.CoInitialize()
@@ -65,6 +69,14 @@ class TrainBooking:
             service = Service("chromedriver.exe")
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
+        except WebDriverException:
+            # 如果 WebDriver 設置失敗，運行 download_driver.py
+            print("當前環境沒有找到ChromeDriver，正在嘗試下載適配的 ChromeDriver 版本...")
+            DownloadDriver.download_and_setup()
+            # 再次嘗試設置 WebDriver
+            service = Service("chromedriver.exe")
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+
         self.driver.get("https://www.railway.gov.tw/tra-tip-web/tip/tip001/tip123/query")
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "pid")))
 
@@ -89,6 +101,7 @@ class TrainBooking:
         self.driver.find_element(By.ID, "normalQty1").send_keys(str(self.passenger_count))
 
     def by_train_number(self):
+        self.driver.find_element(By.ID, "normalQty1").clear()
         self.driver.find_element(By.ID, "trainNoList1").send_keys(self.train_number)
 
     def by_time_slot(self):
@@ -138,7 +151,8 @@ class TrainBookingGUI:
     ]
 
     def __init__(self):
-        self.window = tk.Tk()
+        self.window = ThemedTk(theme="arc")
+
         self.window.title("Train Booking")
         self.window.geometry("400x400")  # 設置窗口大小為 400x400
         self.create_widgets()
