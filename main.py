@@ -1,19 +1,20 @@
-import re
-import os
-
-import tkinter as tk
-from ttkthemes import ThemedTk
-from tkinter import messagebox
-import pythoncom
 from selenium import webdriver
-from selenium.common import SessionNotCreatedException, WebDriverException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
+from selenium.common import SessionNotCreatedException, WebDriverException
+from ttkthemes import ThemedTk
+from tkinter import messagebox
+import re
+import os
+import pythoncom
 import time
 import datetime
 import threading
+import tkinter as tk
+from datetime import date
+
 from download_driver import DownloadDriver
 
 
@@ -29,8 +30,6 @@ class TrainBooking:
         self.train_number = train_number
         self.start_time = start_time
         self.end_time = end_time
-
-
 
     def setup_and_book(self, book_func):
         pythoncom.CoInitialize()
@@ -139,6 +138,42 @@ class TrainBooking:
                 pass
 
 
+# 支援提示文字
+class PlaceholderEntry(tk.Entry):
+    # 呼叫父類別（tk.Entry）的構造函數
+    # **kwargs用來傳送鍵值對的可變數量的參數字典
+    def __init__(self, master=None, placeholder="PLACEHOLDER", color='grey', **kwargs):
+        super().__init__(master, **kwargs)
+
+        # 儲存提示文字、提示文字的顏色，以及預設的文字顏色
+        self.placeholder = placeholder
+        self.placeholder_color = color
+        self.default_fg_color = self['fg']
+
+        # 將焦點獲取與焦點失去事件綁定到對應的方法
+        self.bind("<FocusIn>", self.foc_in)
+        self.bind("<FocusOut>", self.foc_out)
+
+        # 初始時顯示提示文字
+        self.put_placeholder()
+
+    # 插入提示文字並將文字顏色變更為提示文字的顏色。
+    def put_placeholder(self):
+        self.insert(0, self.placeholder)
+        self['fg'] = self.placeholder_color
+
+    # 如果目前的文字是提示文字，則清除它並將文字顏色設置為預設顏色。
+    def foc_in(self, *args):
+        if self['fg'] == self.placeholder_color:
+            self.delete('0', 'end')
+            self['fg'] = self.default_fg_color
+
+    # 如果輸入框是空的，則插入提示文字並將文字顏色設置為提示文字的顏色。
+    def foc_out(self, *args):
+        if not self.get():
+            self.put_placeholder()
+
+
 class TrainBookingGUI:
     station_options = [
         "1000-臺北",
@@ -197,10 +232,11 @@ class TrainBookingGUI:
         self.end_station_option_menu = tk.OptionMenu(self.window, self.end_station_var, *self.station_options)
         self.end_station_option_menu.pack()
 
-        self.date_label = tk.Label(self.window, text="日期(例如:20230719)：")
+        self.date_label = tk.Label(self.window, text="日期：")
         self.date_label.pack()
 
-        self.date_entry = tk.Entry(self.window)
+        today = date.today().strftime("%Y%m%d")
+        self.date_entry = PlaceholderEntry(self.window, placeholder=today)
         self.date_entry.pack()
 
         self.passenger_count_label = tk.Label(self.window, text="乘客人數：")
@@ -241,6 +277,8 @@ class TrainBookingGUI:
 
             booking = TrainBooking(start_station, end_station, date, passenger_count, name_id, train_number)
             threading.Thread(target=booking.book_ticket_by_train_number).start()
+        else:
+            messagebox.showerror("錯誤", "有不明原因導致輸入值有誤，請檢查並重新輸入。")
 
     def create_time_slot_widgets(self):
         self.start_time_label = tk.Label(self.window, text="起始時間：")
@@ -277,6 +315,8 @@ class TrainBookingGUI:
             booking = TrainBooking(start_station, end_station, date, passenger_count, name_id, None, start_time,
                                    end_time)
             threading.Thread(target=booking.book_ticket_by_time_slot).start()
+        else:
+            messagebox.showerror("錯誤", "有不明原因導致輸入值有誤，請檢查並重新輸入。")
 
     def validate_input(self):
         validation_rules = []
