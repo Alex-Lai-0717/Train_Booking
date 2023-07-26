@@ -234,20 +234,17 @@ class TrainBookingGUI:
 
         self.date_label = tk.Label(self.window, text="日期：")
         self.date_label.pack()
-
         today = date.today().strftime("%Y%m%d")
         self.date_entry = PlaceholderEntry(self.window, placeholder=today)
         self.date_entry.pack()
 
         self.passenger_count_label = tk.Label(self.window, text="乘客人數：")
         self.passenger_count_label.pack()
-
         self.passenger_count_entry = tk.Entry(self.window)
         self.passenger_count_entry.pack()
 
         self.name_id_label = tk.Label(self.window, text="身分證字號：")
         self.name_id_label.pack()
-
         self.name_id_entry = tk.Entry(self.window)
         self.name_id_entry.pack()
 
@@ -259,7 +256,6 @@ class TrainBookingGUI:
     def create_train_number_widgets(self):
         self.train_number_label = tk.Label(self.window, text="車次：")
         self.train_number_label.pack()
-
         self.train_number_entry = tk.Entry(self.window)
         self.train_number_entry.pack()
 
@@ -283,7 +279,6 @@ class TrainBookingGUI:
     def create_time_slot_widgets(self):
         self.start_time_label = tk.Label(self.window, text="起始時間：")
         self.start_time_label.pack()
-
         self.start_time_spinbox = tk.Spinbox(self.window,
                                              values=[f"{i:02d}:{j:02d}" for i in range(24) for j in range(0, 60, 30)])
         self.start_time_spinbox.delete(0, "end")  # 首先刪除 Spinbox 中的所有內容
@@ -292,7 +287,6 @@ class TrainBookingGUI:
 
         self.end_time_label = tk.Label(self.window, text="結束時間：")
         self.end_time_label.pack()
-
         self.end_time_spinbox = tk.Spinbox(self.window,
                                            values=[f"{i:02d}:{j:02d}" for i in range(24) for j in range(0, 60, 30)])
         self.end_time_spinbox.delete(0, "end")  # 首先刪除 Spinbox 中的所有內容
