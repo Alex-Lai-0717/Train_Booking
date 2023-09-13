@@ -3,7 +3,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common import SessionNotCreatedException, WebDriverException
+from selenium.common.exceptions import SessionNotCreatedException, WebDriverException
+
 from ttkthemes import ThemedTk
 from tkinter import messagebox
 import re
@@ -60,18 +61,22 @@ class TrainBooking:
             service = Service("chromedriver.exe")
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
-        except SessionNotCreatedException:
-            # 如果 WebDriver 設置失敗，運行 download_driver.py
+        except Exception as e:
+            print(f"捕獲到異常：{e}")
+            version_str = "Current browser version is "
             print("當前的 ChromeDriver 版本與 Chrome 瀏覽器版本不兼容，正在嘗試下載適配的 ChromeDriver 版本...")
-            DownloadDriver.download_and_setup()
-            # 再次嘗試設置 WebDriver
-            service = Service("chromedriver.exe")
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
-
-        except WebDriverException:
+            start_index = str(e).find(version_str)
+            if start_index != -1:
+                start_index += len(version_str)
+                end_index = str(e).find(" ", start_index)
+                version = str(e)[start_index:end_index]
+                print(f"當前Chrome version: {version}")
             # 如果 WebDriver 設置失敗，運行 download_driver.py
-            print("當前環境沒有找到ChromeDriver，正在嘗試下載適配的 ChromeDriver 版本...")
-            DownloadDriver.download_and_setup()
+            else:
+                # 如果無法從錯誤訊息中提取版本號，可以提示用戶手動輸入或使用其他方法
+                version = input("請手動輸入您的 Chrome 主版本號的前三碼（例如：117）：")
+
+            DownloadDriver.download_and_setup(version)
             # 再次嘗試設置 WebDriver
             service = Service("chromedriver.exe")
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
