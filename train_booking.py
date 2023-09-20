@@ -6,7 +6,6 @@ from selenium.webdriver.support import expected_conditions as EC
 import os
 import pythoncom
 import time
-
 from download_driver import DownloadDriver
 
 class TrainBooking:
@@ -126,11 +125,17 @@ class TrainBooking:
                 pass
 
             try:
+                result = self.driver.find_element(By.ID, 'errorDiv')
+                result_value = result.text
+                if "乘車日期尚未開放訂票" in result_value:
+                    print("乘車日期尚未開放訂票")
+                    os._exit(0)
+            except:
+                pass
+
+            try:
                 self.driver.find_element(By.ID, "goBack")
                 print("已找到可搭乘之車票。")
                 os._exit(0)
             except:
                 pass
-
-if __name__ == "__main__":
-    print("This is the train booking logic.")

@@ -108,7 +108,7 @@ class TrainBookingGUI:
 
         self.passenger_count_label = tk.Label(self.window, text="乘客人數：")
         self.passenger_count_label.pack()
-        self.passenger_count_entry = tk.Entry(self.window)
+        self.passenger_count_entry = PlaceholderEntry(self.window, placeholder=1)
         self.passenger_count_entry.pack()
 
         self.name_id_label = tk.Label(self.window, text="身分證字號：")
